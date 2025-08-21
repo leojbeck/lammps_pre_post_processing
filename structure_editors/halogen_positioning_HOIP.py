@@ -16,16 +16,19 @@ placements = [[2], [3], [4], [2, 3], [2, 4], [2, 5], [2, 6], [3, 4], [3, 5]]
 
 # Charge constants
 e_c_hyd = 0.25		# cg2 with hydrogen attached
-e_c_hal = 0.6		# cg2 with halogen attached
 e_hyd = 0.050		# hydrogen on carbon ring (har)
-e_hal = -0.300		# halogen on carbon ring (curr. only far)
+
+# Dictionary of halogen charges [0] and cg2 charges [1]
+halogens = {
+	'F': [-0.300, 0.6],
+	'Cl': [-0.28, 0.58],
+	'Br': [-0.26, 0.56],
+	'I': [-0.24, 0.54]
+	}
 
 # Forcefield types to check for
 ffs = ['cg2', 'har']
 hyd_ff = ffs[1]
-
-# List of halogens to swap in
-halogens = ['F', 'Cl', 'Br', 'I']
 
 # car 2 mdf index shift
 c2m = 17 
@@ -116,14 +119,14 @@ def replace_atoms_with_ring_substitution(car_lines, mdf_lines, placement, hal):
 					parts[0] = f"{hal}{parts[0][1:]}"
 					parts[6] = f"{hal}{parts[6][1:]}".lower()
 					parts[7] = hal
-					parts[8] = f"{e_hal:.3f}"
+					parts[8] = f"{halogens[hal][0]:.3f}"
 					
 					# mdf line edits
 					# TODO: C & H hardcoded in here
 					m_parts[0] = re.sub(r":[CH](\d+)", fr":{hal}\1", m_parts[0])
 				else:
 					# Leave as carbon
-					parts[8] = f"{e_c_hal:.3f}"
+					parts[8] = f"{halogens[hal][1]:.3f}"
 					tnums = int(re.search(r'\d+$', m_parts[12]).group())
 					m_parts[12] = f"{hal}{tnums}"
 			# Remove last character from ff type
@@ -154,7 +157,7 @@ def process_car_file(carif, mdfif):
 	mdf_base_filename, mdf_ext = os.path.splitext(os.path.basename(mdfif))
 	dirpath = os.path.dirname(carif)
 	
-	for hal in halogens:
+	for i, (hal, v) in enumerate(halogens.items()):
 		haldir = dirpath + "/" + hal + "MBA"
 		if not os.path.isdir(haldir):
 			os.mkdir(haldir)
