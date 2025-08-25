@@ -1,11 +1,14 @@
 # Halogen Placement Script - v2
 # Original work -   William Weise   -- 2025 07 15
-# Rework - Leo Beck - most recently -- 2025 08 20
+# Rework - Leo Beck - most recently -- 2025 08 21
 
 # This script takes a master car / mdf output from Materials Studio,
 # then creates all of the combinations of mono & di halogenated variants
 # of a specific halogen (change hal to change the halogen type)
 # This v2 also adjusts the mdf, not just the car
+
+# This script works under the assumption that the har atom is first in the 
+# list of bonds to the cg2
 
 import os
 import re
@@ -13,26 +16,24 @@ from copy import deepcopy
 
 # Define substitution patterns (positions on ring)
 placements = [[2], [3], [4], [2, 3], [2, 4], [2, 5], [2, 6], [3, 4], [3, 5]]
-
-# Charge constants
-e_c_hyd = 0.25		# cg2 with hydrogen attached
-e_hyd = 0.050		# hydrogen on carbon ring (har)
+# Charge constants - not currently used, just initial charges
+#e_c_hyd = 0.25		# cg2 with hydrogen attached
+#e_hyd = 0.050		# hydrogen on carbon ring (har)
 
 # Dictionary of halogen charges [0] and cg2 charges [1]
 halogens = {
 	'F': [-0.300, 0.6],
-	'Cl': [-0.28, 0.58],
-	'Br': [-0.26, 0.56],
-	'I': [-0.24, 0.54]
+	'Cl': [-0.3, 0.6], #[-0.28, 0.58],
+	'Br': [-0.3, 0.6], #[-0.26, 0.56],
+	'I': [-0.3, 0.6], #[-0.24, 0.54]
 	}
 
 # Forcefield types to check for
 ffs = ['cg2', 'har']
 hyd_ff = ffs[1]
 
-# car 2 mdf index shift
+# car 2 mdf index shift based on header lengths
 c2m = 17 
-
 
 def car_format_fixed(p):
 	return (
@@ -50,11 +51,10 @@ def car_format_fixed(p):
 	)
 
 def mdf_format_fixed(m):
+	# For loop to handle dynamic length from # bonds
 	string = ''
 	for i in range(12, len(m)):
 		string += f"{m[i]:<{len(m[i]) + 1}}"
-		
-	#print(string)
 	return (
 		f"{m[0]:<14}"						# SubUnit:element
 		f"{m[1]:>7}"						# Element
@@ -104,7 +104,8 @@ def replace_atoms_with_ring_substitution(car_lines, mdf_lines, placement, hal):
 		# Get relevant mdf line, split into parts
 		mline = mdf_lines[ind+c2m]
 		m_parts = mline.split()
-		#print(len(m_parts))
+		
+		# Handle case of no bonds (likely from Ipb1)
 		if len(m_parts) < 13:
 			m_parts.insert(12, '')
 		
@@ -113,7 +114,7 @@ def replace_atoms_with_ring_substitution(car_lines, mdf_lines, placement, hal):
 			# Check if the trailing char (ring placement) is in placements
 			if int(fftype[-1]) in placement:
 				
-				# Check whether current line matches first ffs entry
+				# Check whether current line matches first ffs entry (hydrogen)
 				if fftype.startswith(hyd_ff):
 					# Substituted with Fluorine
 					parts[0] = f"{hal}{parts[0][1:]}"
@@ -124,11 +125,19 @@ def replace_atoms_with_ring_substitution(car_lines, mdf_lines, placement, hal):
 					# mdf line edits
 					# TODO: C & H hardcoded in here
 					m_parts[0] = re.sub(r":[CH](\d+)", fr":{hal}\1", m_parts[0])
-				else:
-					# Leave as carbon
+				else:	# cg2 atom
+					# Edit charge of cg2
 					parts[8] = f"{halogens[hal][1]:.3f}"
-					tnums = int(re.search(r'\d+$', m_parts[12]).group())
-					m_parts[12] = f"{hal}{tnums}"
+					# Grab number from har bond to put onto halogen
+					# Look for the first entry starting with 'H' followed by digits
+					hyd_idx, hyd_val = next(
+					(i, val) for i, val in enumerate(m_parts[12:], start=12)
+					if re.match(r"^H\d+$", val)
+					)
+					# Extract the trailing number
+					tnums = int(re.search(r"\d+$", hyd_val).group())
+					# Replace with halogen + number
+					m_parts[hyd_idx] = f"{hal}{tnums}"
 			# Remove last character from ff type
 			parts[6] = parts[6][:-1]
 			m_parts[2]= m_parts[2][:-1]
@@ -138,8 +147,6 @@ def replace_atoms_with_ring_substitution(car_lines, mdf_lines, placement, hal):
 		car_lines[ind] = line
 		mline = mdf_format_fixed(m_parts)
 		mdf_lines[ind+c2m] = mline
-		
-		# Fix the mdf file (add 17 to the line index)
 		
 	return car_lines, mdf_lines
 
@@ -151,12 +158,12 @@ def process_car_file(carif, mdfif):
 	with open(mdfif, 'r') as f:
 		original_mdf_lines = [line.rstrip('\n') for line in f]
 	
-	
 	# Grab path and filename to use path
 	car_base_filename, car_ext = os.path.splitext(os.path.basename(carif))
 	mdf_base_filename, mdf_ext = os.path.splitext(os.path.basename(mdfif))
 	dirpath = os.path.dirname(carif)
 	
+	# Loop through halogen types
 	for i, (hal, v) in enumerate(halogens.items()):
 		haldir = dirpath + "/" + hal + "MBA"
 		if not os.path.isdir(haldir):
@@ -164,7 +171,8 @@ def process_car_file(carif, mdfif):
 			print(" ------- Subdirectory created: ", haldir)
 		else: 
 			print(" ------- Subdirectory found. Using: ", haldir)
-
+		
+		# Loop through placements
 		for placement in placements:
 			modified_car_lines, modified_mdf_lines = replace_atoms_with_ring_substitution(deepcopy(original_car_lines), deepcopy(original_mdf_lines), placement, hal)
 			
