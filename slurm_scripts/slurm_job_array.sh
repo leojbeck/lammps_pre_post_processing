@@ -10,7 +10,7 @@
 #SBATCH --output=testout.out
 #SBATCH --mail-type=END,FAIL
 ##SBATCH --constraint=ib
-#SBATCH --array=1-20
+#SBATCH --array=0-20
 
 # LAMMPS input script name
 inp_name="lrt.inp"
