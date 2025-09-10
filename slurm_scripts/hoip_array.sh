@@ -90,10 +90,8 @@ mapfile -t JOB_NAMES < <(printf "%s\n" "${JOB_NAMES_LIST[@]}" | sort -u)
 for str in ${JOB_NAMES[@]}; do
   name=$str$postroot
 
-  ## do the msi thing
   ## Currently has the frc in the same folder as bash_file.sh (hence $PWD).
-  ## Change to your liking
-  ./msi2lmp.exe $dir$str -c 1 -p 0 -frc $PWD/cvff_iff_v1_5_G_poly_solv_ions_per_v55 -i
+  ./msi2lmp.exe $dir$str -c 1 -p 0 -frc $PWD/$frc_file -i
 
   ## make and move the files
   mkdir $dir$str
