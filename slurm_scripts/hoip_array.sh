@@ -90,6 +90,6 @@ MAX_IDX=$((NUM_JOBS - 1))
 sed -i "s/^#SBATCH --array=.*/#SBATCH --array=0-${MAX_IDX}/" $job_script_name
 
 ## Start the job
-##sbatch --export=NONE $dir$job_script_name
+sbatch --export=NONE $job_script_name
 ## --export=NONE fixes the module load issue
 ## Basically this avoids exporting the login node environment to the compute nodes since login has none of the modules
