@@ -30,20 +30,39 @@ postroot=""
 JOB_NAMES_LIST=()
 JOB_NAMES=()
 dir=$1
+
 temp=""
 job_script_name=(*job*.script)
-echo "Job script: $job_script_name"
-##lammps_inp_name=(*.inp)
-frc_name=(*.frc)
-echo "Forcefield file: $frc_name"
-frc_name=${frc_name%.*}
+frc_file=(*.frc)
+
+
+if [[ "$job_script_name" == "*job*.script" ]] ; then
+    echo "Batch job script file not found."
+    exit 1
+elif (( ${#job_script_name[@]} > 1 )); then
+    echo "Multiple job scripts found."
+    exit 1
+else
+    echo "Batch job script file: $job_script_name"
+fi
+
+if [[ "$frc_file" == "*.frc" ]] ; then
+    echo "Forcefield file not found."
+    exit 1
+elif (( ${#frc_file[@]} > 1 )); then
+    echo "Error: Multiple forcefield files found: ${frc_file[*]}"
+    exit 1
+else 
+    echo "Forcefield file: $frc_file"
+fi
+frc_file=${frc_file%.*}
 
 # makes sure dir has / at the end
 dir=${dir%/}
 dir+="/"
 
 ## Make sure msi2lmp.exe is executable
-chmod 777 msi2lmp.exe || echo "msi2lmp.exe not found."
+chmod 777 msi2lmp.exe || (echo "msi2lmp.exe not found."; exit 2)
 
 
 ## First for loop - creates list of unique filenames (without extensions)
