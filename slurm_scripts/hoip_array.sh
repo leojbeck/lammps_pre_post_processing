@@ -35,7 +35,7 @@ temp=""
 job_script_name=(*job*.script)
 frc_file=(*.frc)
 
-
+## Check that job script and frc are grabbed correctly
 if [[ "$job_script_name" == "*job*.script" ]] ; then
     echo "Batch job script file not found."
     exit 1
@@ -72,10 +72,9 @@ for f in "$dir"*; do
   then  
     ## Get rid of leading filepath (if it exists)
     temp=${f##*/}
+    # echo ${temp}
     ## Get rid of file extension
     temp=${temp%.*}
-    echo ${temp}
-    ##temp=$(basename "$f" | sed 's\/.[^.]*$//')
     ## Add filename to list of names
     JOB_NAMES_LIST+=($temp)
   else
@@ -88,10 +87,13 @@ done
 mapfile -t JOB_NAMES < <(printf "%s\n" "${JOB_NAMES_LIST[@]}" | sort -u)
 
 for str in ${JOB_NAMES[@]}; do
-  name=$str$postroot
-
+  echo "Prepping ${str}"
+  # Check to make sure both car and mdf are in folder.
+  [ ! -f $dir$str.car ] && echo "${str}.car file not found!"
+  [ ! -f $dir$str.mdf ] && echo "${str}.mdf file not found!"
+  
   ## Currently has the frc in the same folder as bash_file.sh (hence $PWD).
-  ./msi2lmp.exe $dir$str -c 1 -p 0 -frc $PWD/$frc_file -i
+  ./msi2lmp.exe $dir$str -c 1 -p 0 -frc $PWD/$frc_file -i || (echo "msi2lmp failed for $str."; exit 1)
 
   ## make and move the files
   mkdir $dir$str
