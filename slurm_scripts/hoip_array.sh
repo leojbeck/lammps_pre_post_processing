@@ -31,12 +31,20 @@ JOB_NAMES_LIST=()
 JOB_NAMES=()
 dir=$1
 temp=""
-job_script_name="run_lrht_array.script"
-lammps_inp_name="org_hoip.inp"
+job_script_name=(*job*.script)
+echo "Job script: $job_script_name"
+##lammps_inp_name=(*.inp)
+frc_name=(*.frc)
+echo "Forcefield file: $frc_name"
+frc_name=${frc_name%.*}
 
 # makes sure dir has / at the end
 dir=${dir%/}
 dir+="/"
+
+## Make sure msi2lmp.exe is executable
+chmod 777 msi2lmp.exe || echo "msi2lmp.exe not found."
+
 
 ## First for loop - creates list of unique filenames (without extensions)
 for f in "$dir"*; do
@@ -57,10 +65,9 @@ for f in "$dir"*; do
 done
 
 ## The part that creates the list of unique names
-JOB_NAMES=$(printf "%s\n" "${JOB_NAMES_LIST[@]}" | sort -u)
+##JOB_NAMES=$(printf "%s\n" "${JOB_NAMES_LIST[@]}" | sort -u)
+mapfile -t JOB_NAMES < <(printf "%s\n" "${JOB_NAMES_LIST[@]}" | sort -u)
 
-## Start of Step 2
-count=0
 for str in ${JOB_NAMES[@]}; do
   name=$str$postroot
 
@@ -74,8 +81,15 @@ for str in ${JOB_NAMES[@]}; do
   mv $dir$str.* $dir$str/.
 done
 
+## Edit the job array line to match number of subdirs
+## Find max index of job array (0 to n-1)
+NUM_JOBS=${#JOB_NAMES[@]}
+MAX_IDX=$((NUM_JOBS - 1))
+
+## Swap line starting with #SBATCH --array=
+sed -i "s/^#SBATCH --array=.*/#SBATCH --array=0-${MAX_IDX}/" $job_script_name
+
 ## Start the job
-sbatch --export=NONE $dir$job_script_name
+##sbatch --export=NONE $dir$job_script_name
 ## --export=NONE fixes the module load issue
-## Basically this avoids exporting the login node environment to the compute nodes
-## since login has none of the modules
+## Basically this avoids exporting the login node environment to the compute nodes since login has none of the modules
