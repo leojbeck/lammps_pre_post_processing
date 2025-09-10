@@ -11,7 +11,6 @@ Pre and post processing scripts for running LAMMPS simulations through slurm. Sc
 *contains scripts that are used to prep / submit jobs while on the HPC.*
 
   -  **hoip_array.sh** takes a folder of .car .mdf pairs and preps and runs lammps simulations for all of them. It converts each to a .data file using msi2lmp.exe, creates a designated folder, and submits the job via slurm.
-  -  **slurm_job_array.sh** is a job array batch script for slurm to run lammps simulations.
   -  **batch_job_arr.script** Slurm array batch script to submit a list of lammps simulations at once. Used in conjunction with hoip_array.sh.
 
 ## analysis_scripts
