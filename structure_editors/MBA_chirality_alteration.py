@@ -104,11 +104,12 @@ def swap_backbone_atoms(car_lines, mdf_lines, chir_flag):
 	atom_index = build_atom_index(car_lines)
 	
 	delind = 888
-	
+	start_ind = 0
 	# Iterate through lines
 	for ind, line in enumerate(car_lines[:-2]):
 		# Ignore the header (first 4 lines)
 		if ind <= 4:
+			start_ind += 1
 			continue
 		
 		# Split up car line into parts
@@ -122,6 +123,7 @@ def swap_backbone_atoms(car_lines, mdf_lines, chir_flag):
 		# Handle case of no bonds (likely from Ipb1)
 		if len(m_parts) < 13:
 			m_parts.insert(12, '')
+		
 		
 		# Check if forcefield type matches any of the designated ff types
 		if fftype.startswith(tuple(ffs)):
@@ -196,6 +198,9 @@ def swap_backbone_atoms(car_lines, mdf_lines, chir_flag):
 		car_lines[ind] = line
 		mdf_lines[ind+c2m] = mline
 		
+	# Delete empty lines
+	car_lines[start_ind:] = [l for l in car_lines[start_ind:] if l.strip()]
+	mdf_lines[start_ind+c2m:] = [l for l in mdf_lines[start_ind+c2m:] if l.strip()]
 	return car_lines, mdf_lines
 
 def process_car_file(carif, mdfif, chir_flag):
