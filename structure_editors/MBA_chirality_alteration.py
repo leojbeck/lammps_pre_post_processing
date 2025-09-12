@@ -29,6 +29,8 @@ ffs = ['n4', 'c3', 'hn', 'h1h', 'cnp', 'h1hx']
 
 # car 2 mdf index shift based on header lengths
 c2m = 16
+# Store c3 ids from mdf during chir_flag 1 to reference in chir_flag 2
+c3_ids = {}
 
 def car_format_fixed(p):
 	return (
@@ -83,10 +85,17 @@ def build_atom_index(lines):
 def car_swap(parts, n):
 	#n = {0: 1, 1: 0, 2: 3, 3: 2}
 	parts[0] = f"{elem_dict[ffs[n]][1]}{parts[0][1:]}"
-	parts[6] = f"{elem_dict[ffs[n]][1]}{parts[6][1:]}".lower()
+	parts[6] = f"{ffs[n]}".lower()
 	parts[7] = elem_dict[ffs[n]][1]
 	parts[8] = f"{elem_dict[ffs[n]][0]:.3f}"
 	return parts
+
+def mdf_swap(mp, n, new_id):
+	mp[0] = re.sub(r":[A-Z]+(\d+)", fr":{elem_dict[ffs[n]][1]}{new_id}", mp[0])
+	mp[1] = f"{elem_dict[ffs[n]][1]}"
+	mp[2] = f"{ffs[n]}".lower()
+	mp[6] = elem_dict[ffs[n]][0]
+	return mp
 
 def swap_backbone_atoms(car_lines, mdf_lines, chir_flag):
 	# Read car / mdf lines
@@ -95,6 +104,7 @@ def swap_backbone_atoms(car_lines, mdf_lines, chir_flag):
 	atom_index = build_atom_index(car_lines)
 	
 	delind = 888
+	
 	# Iterate through lines
 	for ind, line in enumerate(car_lines[:-2]):
 		# Ignore the header (first 4 lines)
@@ -126,19 +136,27 @@ def swap_backbone_atoms(car_lines, mdf_lines, chir_flag):
 						# mdf: map nitrogen to carbon (id * 8)
 						atom_id = int(re.search(r"\d+$", m_parts[0]).group())
 						new_id = atom_id * 8
-						m_parts[0] = re.sub(r":[A-Z]+(\d+)", f":C{new_id}", m_parts[0])
+						mdf_swap(m_parts, 1, new_id)
 				case 'c3' : # Carbon c3
 					if chir_flag == 1:
 						# Swap c3 to n4
 						car_swap(parts, 0)
 						# mdf: map carbon to nitrogen (id / 8)
 						atom_id = int(re.search(r"\d+$", m_parts[0]).group())
+						
 						new_id = atom_id // 8   # integer division
-						m_parts[0] = re.sub(r":[A-Z]+(\d+)", f":N{new_id}", m_parts[0])
+						mdf_swap(m_parts, 0, new_id)
+						
+						# Add to dict of c3 ids (for chir_flag = 2)
+						c3_ids.update({atom_id: delind})
+						delind += 1
 					elif chir_flag == 2:
 						car_swap(parts, 3)
 						new_id = delind
-						m_parts[0] = re.sub(r":[A-Z]+(\d+)", f":H{new_id}", m_parts[0])
+						mdf_swap(m_parts, 3, new_id)
+						# Delete bonded hydrogens in mdf
+						m_parts[12:] = [col for col in m_parts[12:] if not re.match(r"^H\d+$", col)]
+						
 				case 'hn': # Hydrogen (hn)
 					# Swap hn to h1h
 					if chir_flag == 1:
@@ -154,8 +172,13 @@ def swap_backbone_atoms(car_lines, mdf_lines, chir_flag):
 					if chir_flag == 2:
 						# replace bonded C with H in MDF
 						new_id = delind
-						m_parts[0] = re.sub(r":C(\d+)", f":H{new_id}", m_parts[0])
-						delind += 1
+						for i, bond in enumerate(m_parts[12:], start=12):
+							# Look for :C<number>
+							m = re.match(r"^C(\d+)$", bond) or re.match(r"^:C(\d+)$", bond)
+							if m:
+								c_id = int(m.group(1))
+								if c_id in c3_ids:
+									m_parts[i] = f"H{c3_ids[c_id]}"
 						
 				case _: # Hydrogen (h1h on cnp)
 					# Remove last character from ff type
@@ -175,10 +198,14 @@ def swap_backbone_atoms(car_lines, mdf_lines, chir_flag):
 		
 	return car_lines, mdf_lines
 
-def process_car_file(carif, mdfif):
-	chir_flag = 1
+def process_car_file(carif, mdfif, chir_flag):
+
 	carfp = os.path.dirname(carif)
 	mdffp = os.path.dirname(mdfif)
+	# Grab path and filename to use path
+	car_base_filename, car_ext = os.path.splitext(os.path.basename(carif))
+	mdf_base_filename, mdf_ext = os.path.splitext(os.path.basename(mdfif))
+	
 	# Open and read lines from car / mdf files
 	with open(carif, 'r') as f:
 		original_car_lines = [line.rstrip('\n') for line in f]
@@ -186,40 +213,41 @@ def process_car_file(carif, mdfif):
 	with open(mdfif, 'r') as f:
 		original_mdf_lines = [line.rstrip('\n') for line in f]
 	
-	# Grab path and filename to use path
-	car_base_filename, car_ext = os.path.splitext(os.path.basename(carif))
-	mdf_base_filename, mdf_ext = os.path.splitext(os.path.basename(mdfif))
-	dirpath = os.path.dirname(carif)
-	
 	modified_car_lines, modified_mdf_lines = swap_backbone_atoms(deepcopy(original_car_lines), deepcopy(original_mdf_lines), chir_flag)
 	
-	# car output things
-	chirality = 'R'
-	if car_base_filename.startswith('R'):
-		chirality = 'S'
-	output_car_filename = f"{chirality}{car_base_filename[1:]}{car_ext}"
+	# Change chirality char based on operation
+	chirality = car_base_filename[0:2]
+	if chir_flag == 1:
+		if car_base_filename.startswith('R'):
+			chirality = 'S' + str(chirality[1])
+	elif chir_flag == 2:
+		chirality = ''
+	else:
+		chirality = 'c' + chirality
+	# car mdf output filenames
+	output_car_filename = f"{chirality}{car_base_filename[2:]}{car_ext}"
+	output_mdf_filename = f"{chirality}{mdf_base_filename[2:]}{mdf_ext}"
 	output_car_path = os.path.join(carfp, output_car_filename)
+	output_mdf_path = os.path.join(mdffp, output_mdf_filename)
 	
+	# Write new files
 	with open(output_car_path, 'w') as f:
 		f.write('\n'.join(modified_car_lines) + '\n')
 	print(f"Generated: {output_car_path}")
-	
-	# mdf output things
-	output_mdf_filename = f"{chirality}{mdf_base_filename[1:]}{mdf_ext}"
-	output_mdf_path = os.path.join(mdffp, output_mdf_filename)
 	
 	with open(output_mdf_path, 'w') as f:
 		f.write('\n'.join(modified_mdf_lines) + '\n')
 	print(f"Generated: {output_mdf_path}")
 
 if __name__ == "__main__":
-	car_in_file = "../../../HOIS/CRYSTAL_STRUCTURES/PbI3/F/R-2-FMBA_PbI3_298K.car"
+	car_in_file = "../../../HOIS/CRYSTAL_STRUCTURES/PbI3/R-X-YMBA_PbI3.car"
 	#input_file = input("Enter full path to the .car structure file (including the file name itself): ").strip()
 	if os.path.isfile(car_in_file) and car_in_file.endswith(".car"):
 		mdf_in_file = os.path.splitext(car_in_file)[0]+'.mdf'
 		if os.path.isfile(mdf_in_file):
 			print("------ mdf found: ", mdf_in_file, " ------")
-			process_car_file(car_in_file, mdf_in_file)
+			for chir_flag in range(0,3):
+				process_car_file(car_in_file, mdf_in_file, chir_flag)
 		else:
 			print("car exists, but mdf does not. Please include mdf of same basename in the directory.")
 	else:
