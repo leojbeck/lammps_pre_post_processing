@@ -15,7 +15,7 @@ import re
 from copy import deepcopy
 
 # Define substitution patterns (positions on ring)
-placements = [[2], [3], [4], [2, 3], [2, 4], [2, 5], [2, 6], [3, 4], [3, 5]]
+placements = [[], [2], [3], [4], [2, 3], [2, 4], [2, 5], [2, 6], [3, 4], [3, 5]]
 # Charge constants - not currently used, just initial charges
 #e_c_hyd = 0.25		# cg2 with hydrogen attached
 #e_hyd = 0.050		# hydrogen on carbon ring (har)
@@ -33,7 +33,7 @@ ffs = ['cg2', 'har']
 hyd_ff = ffs[1]
 
 # car 2 mdf index shift based on header lengths
-c2m = 17 
+c2m = 16 
 
 def car_format_fixed(p):
 	return (
@@ -91,14 +91,17 @@ def replace_atoms_with_ring_substitution(car_lines, mdf_lines, placement, hal):
 	mdf_lines = deepcopy(mdf_lines)
 	atom_index = build_atom_index(car_lines)
 	
+	
 	# Iterate through lines
 	for ind, line in enumerate(car_lines[:-2]):
 		# Ignore the header (first 4 lines)
-		if ind < 4:
+		if ind <= 4:
 			continue
 		
 		# Split up car line into parts
 		parts = line.split()
+		if len(parts) < 6:
+			continue
 		fftype = parts[6]
 		
 		# Get relevant mdf line, split into parts
@@ -108,6 +111,7 @@ def replace_atoms_with_ring_substitution(car_lines, mdf_lines, placement, hal):
 		# Handle case of no bonds (likely from Ipb1)
 		if len(m_parts) < 13:
 			m_parts.insert(12, '')
+			
 		
 		# Check if forcefield type matches any of the designated ff types
 		if fftype.startswith(tuple(ffs)):
@@ -162,6 +166,9 @@ def process_car_file(carif, mdfif):
 	car_base_filename, car_ext = os.path.splitext(os.path.basename(carif))
 	mdf_base_filename, mdf_ext = os.path.splitext(os.path.basename(mdfif))
 	dirpath = os.path.dirname(carif)
+	_, _, sys = car_base_filename.rpartition("_")
+	chirality = car_base_filename[0]
+	
 	
 	# Loop through halogen types
 	for i, (hal, v) in enumerate(halogens.items()):
@@ -178,7 +185,7 @@ def process_car_file(carif, mdfif):
 			
 			# car output things
 			suffix = '-'.join(map(str, placement))
-			output_car_filename = f"R-{suffix}-{hal}MBA{car_ext}" if suffix else f"R-{hal}MBA{car_ext}"
+			output_car_filename = f"{chirality}-{suffix}-{hal}MBA_{sys}{car_ext}" if suffix else f"{chirality}-{hal}MBA_{sys}{car_ext}"
 			output_car_path = os.path.join(haldir, output_car_filename)
 			
 			with open(output_car_path, 'w') as f:
@@ -186,7 +193,7 @@ def process_car_file(carif, mdfif):
 			print(f"Generated: {output_car_path}")
 			
 			# mdf output things
-			output_mdf_filename = f"R-{suffix}-{hal}MBA{mdf_ext}" if suffix else f"R-{hal}MBA{mdf_ext}"
+			output_mdf_filename = f"{chirality}-{suffix}-{hal}MBA_{sys}{mdf_ext}" if suffix else f"{chirality}-{hal}MBA_{sys}{mdf_ext}"
 			output_mdf_path = os.path.join(haldir, output_mdf_filename)
 			
 			with open(output_mdf_path, 'w') as f:
@@ -194,7 +201,7 @@ def process_car_file(carif, mdfif):
 			print(f"Generated: {output_mdf_path}")
 
 if __name__ == "__main__":
-	car_in_file = "../../HOIS/CRYSTAL_STRUCTURES/Rxn_energy/R-Y-XMBA_structures/R-Y-XMBA_I_amorphous.car"
+	car_in_file = "../../../HOIS/CRYSTAL_STRUCTURES/PbI3/master_files/X-YMBA_PbI3.car"
 	#input_file = input("Enter full path to the .car structure file (including the file name itself): ").strip()
 	if os.path.isfile(car_in_file) and car_in_file.endswith(".car"):
 		mdf_in_file = os.path.splitext(car_in_file)[0]+'.mdf'
