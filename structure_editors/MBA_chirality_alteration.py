@@ -82,9 +82,9 @@ def build_atom_index(lines):
 			atom_index[atom_name] = i
 	return atom_index
 
-def car_swap(parts, n):
+def car_swap(parts, n, new_id):
 	#n = {0: 1, 1: 0, 2: 3, 3: 2}
-	parts[0] = f"{elem_dict[ffs[n]][1]}{parts[0][1:]}"
+	parts[0] = f"{elem_dict[ffs[n]][1]}{new_id}"
 	parts[6] = f"{ffs[n]}".lower()
 	parts[7] = elem_dict[ffs[n]][1]
 	parts[8] = f"{elem_dict[ffs[n]][0]:.3f}"
@@ -132,29 +132,30 @@ def swap_backbone_atoms(car_lines, mdf_lines, chir_flag):
 			match fftype:
 				case 'n4': # Nitrogen n4
 					if chir_flag == 1:
-						# Swap n4 to c3 
-						car_swap(parts, 1)
 						# mdf line edits
 						# mdf: map nitrogen to carbon (id * 8)
 						atom_id = int(re.search(r"\d+$", m_parts[0]).group())
 						new_id = atom_id * 8
+						# Swap n4 to c3 
+						car_swap(parts, 1, new_id)
 						mdf_swap(m_parts, 1, new_id)
 				case 'c3' : # Carbon c3
 					if chir_flag == 1:
-						# Swap c3 to n4
-						car_swap(parts, 0)
 						# mdf: map carbon to nitrogen (id / 8)
 						atom_id = int(re.search(r"\d+$", m_parts[0]).group())
 						
 						new_id = atom_id // 8   # integer division
+						
+						# Swap c3 to n4
+						car_swap(parts, 0, new_id)
 						mdf_swap(m_parts, 0, new_id)
 						
 						# Add to dict of c3 ids (for chir_flag = 2)
 						c3_ids.update({atom_id: delind})
 						delind += 1
 					elif chir_flag == 2:
-						car_swap(parts, 3)
 						new_id = delind
+						car_swap(parts, 3, new_id)
 						mdf_swap(m_parts, 3, new_id)
 						# Delete bonded hydrogens in mdf
 						m_parts[12:] = [col for col in m_parts[12:] if not re.match(r"^H\d+$", col)]
@@ -162,11 +163,19 @@ def swap_backbone_atoms(car_lines, mdf_lines, chir_flag):
 				case 'hn': # Hydrogen (hn)
 					# Swap hn to h1h
 					if chir_flag == 1:
-						car_swap(parts, 3)
+						new_id = parts[0][1:]
+						car_swap(parts, 3, new_id)
+						# Change bonded n to bonded h1h
+						new_id = int(re.search(r"\d+$", m_parts[12]).group()) * 8
+						m_parts[12] = f"C{new_id}"
+						
 				case 'h1h': # Hydrogen (h1h on c3)
 					if chir_flag == 1:
 						# Swap h1h to hn
-						car_swap(parts, 2)
+						new_id = parts[0][1:]
+						car_swap(parts, 2, new_id)
+						new_id = int(re.search(r"\d+$", m_parts[12]).group()) // 8
+						m_parts[12] = f"N{new_id}"
 					elif chir_flag == 2:
 						parts = None
 						
