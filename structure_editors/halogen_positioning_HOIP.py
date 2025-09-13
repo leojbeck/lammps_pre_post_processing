@@ -22,10 +22,10 @@ placements = [[], [2], [3], [4], [2, 3], [2, 4], [2, 5], [2, 6], [3, 4], [3, 5]]
 
 # Dictionary of halogen charges [0] and cg2 charges [1]
 halogens = {
-	'F': [-0.300, 0.6],
-	'Cl': [-0.3, 0.6], #[-0.28, 0.58],
-	'Br': [-0.3, 0.6], #[-0.26, 0.56],
-	'I': [-0.3, 0.6], #[-0.24, 0.54]
+	'F':  [-0.3, 0.6, 'far'],
+	'Cl': [-0.3, 0.6, 'clar'], #[-0.28, 0.58],
+	'Br': [-0.3, 0.6, 'brar'], #[-0.26, 0.56],
+	'I':  [-0.3, 0.6, 'iar'], #[-0.24, 0.54]
 	}
 
 # Forcefield types to check for
@@ -34,6 +34,7 @@ hyd_ff = ffs[1]
 
 # car 2 mdf index shift based on header lengths
 c2m = 16 
+har_ids = []
 
 def car_format_fixed(p):
 	return (
@@ -85,12 +86,41 @@ def build_atom_index(lines):
 			atom_index[atom_name] = i
 	return atom_index
 
+def car_swap(parts, hal):
+	#n = {0: 1, 1: 0, 2: 3, 3: 2}
+	parts[0] = f"{hal}{parts[0][1:]}"
+	parts[6] = f"{hal}{parts[6][1:]}".lower()
+	parts[7] = hal
+	parts[8] = f"{halogens[hal][0]:.3f}"
+	return parts
+
+def mdf_swap(mp, hal):
+	mp[0] = re.sub(r":[CH](\d+)", fr":{hal}\1", mp[0])
+	mp[1] = f"{hal}"
+	mp[2] = f"{halogens[hal][2]}x".lower()
+	mp[6] = halogens[hal][0]
+	return mp
+
 def replace_atoms_with_ring_substitution(car_lines, mdf_lines, placement, hal):
 	# Read car / mdf lines
 	car_lines = deepcopy(car_lines)
 	mdf_lines = deepcopy(mdf_lines)
 	atom_index = build_atom_index(car_lines)
 	
+	# Create list of har ids
+	if (placement == []) and (hal == 'F'):
+		for ind, line in enumerate(car_lines[:-2]):
+			p = line.split()
+			if ((ind <= 4) or (len(p) < 6)):
+				continue
+			# Get relevant mdf line, split into parts
+			mline = mdf_lines[ind+c2m]
+			mp = mline.split()
+			fftype = mp[2]
+			if fftype.startswith(hyd_ff):
+				m = re.search(r"(\d+$)", mp[0])
+				har_ids.append(int(m.group(1)))
+		print(har_ids)
 	
 	# Iterate through lines
 	for ind, line in enumerate(car_lines[:-2]):
@@ -121,27 +151,34 @@ def replace_atoms_with_ring_substitution(car_lines, mdf_lines, placement, hal):
 				# Check whether current line matches first ffs entry (hydrogen)
 				if fftype.startswith(hyd_ff):
 					# Substituted with Fluorine
-					parts[0] = f"{hal}{parts[0][1:]}"
-					parts[6] = f"{hal}{parts[6][1:]}".lower()
-					parts[7] = hal
-					parts[8] = f"{halogens[hal][0]:.3f}"
+					car_swap(parts, hal)
 					
 					# mdf line edits
-					# TODO: C & H hardcoded in here
-					m_parts[0] = re.sub(r":[CH](\d+)", fr":{hal}\1", m_parts[0])
+					mdf_swap(m_parts, hal)
 				else:	# cg2 atom
 					# Edit charge of cg2
 					parts[8] = f"{halogens[hal][1]:.3f}"
 					# Grab number from har bond to put onto halogen
 					# Look for the first entry starting with 'H' followed by digits
-					hyd_idx, hyd_val = next(
-					(i, val) for i, val in enumerate(m_parts[12:], start=12)
-					if re.match(r"^H\d+$", val)
-					)
-					# Extract the trailing number
-					tnums = int(re.search(r"\d+$", hyd_val).group())
-					# Replace with halogen + number
-					m_parts[hyd_idx] = f"{hal}{tnums}"
+					# replace that specific H entry in m_parts[12:]
+					# 2) Find the bonded H whose id is in har_ids and replace only that H<id>
+					replaced = False
+					for i, bond in enumerate(m_parts[12:], start=12):
+						if re.match(r"^H\d+$", bond):
+							bid = int(re.search(r"\d+$", bond).group())
+							if bid in har_ids:
+								m_parts[i] = f"{hal}{bid}"
+								replaced = True
+								break
+
+					# fallback: if no har-specific H found, use the first H encountered
+					if not replaced:
+						for i, bond in enumerate(m_parts[12:], start=12):
+							if re.match(r"^H\d+$", bond):
+								bid = int(re.search(r"\d+$", bond).group())
+								m_parts[i] = f"{hal}{bid}"
+								replaced = True
+								break
 			# Remove last character from ff type
 			parts[6] = parts[6][:-1]
 			m_parts[2]= m_parts[2][:-1]
@@ -201,7 +238,7 @@ def process_car_file(carif, mdfif):
 			print(f"Generated: {output_mdf_path}")
 
 if __name__ == "__main__":
-	car_in_file = "../../../HOIS/CRYSTAL_STRUCTURES/PbI3/master_files/X-YMBA_PbI3.car"
+	car_in_file = "../../../HOIS/CRYSTAL_STRUCTURES/PbI3/master_files/S-X-YMBA_PbI3.car"
 	#input_file = input("Enter full path to the .car structure file (including the file name itself): ").strip()
 	if os.path.isfile(car_in_file) and car_in_file.endswith(".car"):
 		mdf_in_file = os.path.splitext(car_in_file)[0]+'.mdf'
