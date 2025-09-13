@@ -4,8 +4,9 @@ Pre and post processing scripts for running LAMMPS simulations through slurm. Sc
 ## structure_editors 
  *contains scripts that directly create or edit MD input files.*
 
-  -  **triple-halid_perovskite_builder.py** creates lammps data files of CsPb(I_{1-x-y}Br_{y}Cl_{x})_3 cubic perovskites. It is intended as a standalone script, so the percentages for Br and Cl, cell_parameters, element charges, and masses are written in variables. The charges on the swapped atoms affect the charges on the neighboring atoms, split by the amount of nearest neighbors. 
+  -  **triple-halide_perovskite_builder.py** creates lammps data files of CsPb(I_{1-x-y}Br_{y}Cl_{x})_3 cubic perovskites. It is intended as a standalone script, so the percentages for Br and Cl, cell_parameters, element charges, and masses are written in variables. The charges on the swapped atoms affect the charges on the neighboring atoms, split by the amount of nearest neighbors. 
   -  **halogen_positioning_HOIP.py** edits a master .car .mdf pair to create all the mono and di halogenated placement combinations on the organic rings. The placements and halogen charges can be easily edited.
+  -  **MBA_chirality_alteration.py** Takes in a .car .mdf pair to create 1) the opposite chirality and 2) no methyl group versions. 
 
 ## slurm_scripts 
 *contains scripts that are used to prep / submit jobs while on the HPC.*
