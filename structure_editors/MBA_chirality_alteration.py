@@ -1,6 +1,6 @@
 # MBA backbone alteration - chirality swapper
 # Originally adapted from halogen_positioning_script (2025 08 21)
-# Leo Beck - most recently -- 2025 09 11
+# Leo Beck - most recently -- 2025 09 13
 
 # This script takes a car / mdf output from Materials Studio,
 # then edits the 'backbones' to change chirality, and (remove the methyl group)
@@ -154,7 +154,8 @@ def swap_backbone_atoms(car_lines, mdf_lines, chir_flag):
 						c3_ids.update({atom_id: delind})
 						delind += 1
 					elif chir_flag == 2:
-						new_id = delind
+						new_id = int(re.search(r"\d+$", m_parts[0]).group())
+						new_id = c3_ids[new_id]
 						car_swap(parts, 3, new_id)
 						mdf_swap(m_parts, 3, new_id)
 						# Delete bonded hydrogens in mdf
@@ -182,7 +183,6 @@ def swap_backbone_atoms(car_lines, mdf_lines, chir_flag):
 				case 'cnp':
 					if chir_flag == 2:
 						# replace bonded C with H in MDF
-						new_id = delind
 						for i, bond in enumerate(m_parts[12:], start=12):
 							# Look for :C<number>
 							m = re.match(r"^C(\d+)$", bond) or re.match(r"^:C(\d+)$", bond)
@@ -207,6 +207,7 @@ def swap_backbone_atoms(car_lines, mdf_lines, chir_flag):
 		car_lines[ind] = line
 		mdf_lines[ind+c2m] = mline
 		
+	print(c3_ids)
 	# Delete empty lines
 	car_lines[start_ind:] = [l for l in car_lines[start_ind:] if l.strip()]
 	mdf_lines[start_ind+c2m:] = [l for l in mdf_lines[start_ind+c2m:] if l.strip()]
@@ -254,7 +255,7 @@ def process_car_file(carif, mdfif, chir_flag):
 	print(f"Generated: {output_mdf_path}")
 
 if __name__ == "__main__":
-	car_in_file = "../../../HOIS/CRYSTAL_STRUCTURES/PbI3/R-X-YMBA_PbI3.car"
+	car_in_file = "../../../HOIS/CRYSTAL_STRUCTURES/PbI4/master_files/R-X-YMBA_PbI4.car"
 	#input_file = input("Enter full path to the .car structure file (including the file name itself): ").strip()
 	if os.path.isfile(car_in_file) and car_in_file.endswith(".car"):
 		mdf_in_file = os.path.splitext(car_in_file)[0]+'.mdf'
