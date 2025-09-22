@@ -1,6 +1,6 @@
 # MBA backbone alteration - chirality swapper
 # Originally adapted from halogen_positioning_script (2025 08 21)
-# Leo Beck - most recently -- 2025 09 13
+# Leo Beck - most recently -- 2025 09 11
 
 # This script takes a car / mdf output from Materials Studio,
 # then edits the 'backbones' to change chirality, and (remove the methyl group)
@@ -13,6 +13,7 @@
 import os
 import re
 from copy import deepcopy
+import sys
 
 
 # Dictionary of backbone charges [0] and elements [1]
@@ -103,12 +104,12 @@ def swap_backbone_atoms(car_lines, mdf_lines, chir_flag):
 	mdf_lines = deepcopy(mdf_lines)
 	atom_index = build_atom_index(car_lines)
 	
-	delind = 888
+	delind = 8888
 	start_ind = 0
 	# Iterate through lines
 	for ind, line in enumerate(car_lines[:-2]):
 		# Ignore the header (first 4 lines)
-		if ind <= 4:
+		if ind <= 5:
 			start_ind += 1
 			continue
 		
@@ -121,7 +122,9 @@ def swap_backbone_atoms(car_lines, mdf_lines, chir_flag):
 		m_parts = mline.split()
 		
 		# Handle case of no bonds (likely from Ipb1)
-		if len(m_parts) < 13:
+		if len(m_parts) < 6:
+			continue
+		elif len(m_parts) < 13:
 			m_parts.insert(12, '')
 		
 		
@@ -135,24 +138,26 @@ def swap_backbone_atoms(car_lines, mdf_lines, chir_flag):
 						# mdf line edits
 						# mdf: map nitrogen to carbon (id * 8)
 						atom_id = int(re.search(r"\d+$", m_parts[0]).group())
-						new_id = atom_id * 8
+						new_id = list(c3_ids.keys())[atom_id - 1]
 						# Swap n4 to c3 
 						car_swap(parts, 1, new_id)
 						mdf_swap(m_parts, 1, new_id)
 				case 'c3' : # Carbon c3
-					if chir_flag == 1:
+					if chir_flag == 0:
+						atom_id = int(re.search(r"\d+$", m_parts[0]).group())
+						# Add to dict of c3 ids (for chir_flag = 2)
+						c3_ids.update({atom_id: delind})
+						delind += 1
+					elif chir_flag == 1:
 						# mdf: map carbon to nitrogen (id / 8)
 						atom_id = int(re.search(r"\d+$", m_parts[0]).group())
 						
-						new_id = atom_id // 8   # integer division
+						new_id = list(c3_ids).index(atom_id) + 1# integer division
 						
 						# Swap c3 to n4
 						car_swap(parts, 0, new_id)
 						mdf_swap(m_parts, 0, new_id)
 						
-						# Add to dict of c3 ids (for chir_flag = 2)
-						c3_ids.update({atom_id: delind})
-						delind += 1
 					elif chir_flag == 2:
 						new_id = int(re.search(r"\d+$", m_parts[0]).group())
 						new_id = c3_ids[new_id]
@@ -166,22 +171,29 @@ def swap_backbone_atoms(car_lines, mdf_lines, chir_flag):
 					if chir_flag == 1:
 						new_id = parts[0][1:]
 						car_swap(parts, 3, new_id)
+						mdf_swap(m_parts, 3, new_id)
 						# Change bonded n to bonded h1h
-						new_id = int(re.search(r"\d+$", m_parts[12]).group()) * 8
+						new_id = int(re.search(r"\d+$", m_parts[12]).group())
+						new_id = list(c3_ids.keys())[atom_id - 1]
 						m_parts[12] = f"C{new_id}"
-						
 				case 'h1h': # Hydrogen (h1h on c3)
 					if chir_flag == 1:
 						# Swap h1h to hn
 						new_id = parts[0][1:]
 						car_swap(parts, 2, new_id)
-						new_id = int(re.search(r"\d+$", m_parts[12]).group()) // 8
+						mdf_swap(m_parts, 2, new_id)
+						new_id = int(re.search(r"\d+$", m_parts[12]).group())
+						new_id = list(c3_ids).index(atom_id) + 1
 						m_parts[12] = f"N{new_id}"
 					elif chir_flag == 2:
 						parts = None
 						
 				case 'cnp':
 					if chir_flag == 2:
+						# Reduce charge from 0.15 to 0.1
+						charge = 0.1 #elem_dict[ffs[n]][0] - 0.05
+						parts[8] = f"{charge:.3f}"
+						m_parts[6] = charge
 						# replace bonded C with H in MDF
 						for i, bond in enumerate(m_parts[12:], start=12):
 							# Look for :C<number>
@@ -209,8 +221,8 @@ def swap_backbone_atoms(car_lines, mdf_lines, chir_flag):
 		
 	print(c3_ids)
 	# Delete empty lines
-	car_lines[start_ind:] = [l for l in car_lines[start_ind:] if l.strip()]
-	mdf_lines[start_ind+c2m:] = [l for l in mdf_lines[start_ind+c2m:] if l.strip()]
+	car_lines[start_ind:-2] = [l for l in car_lines[start_ind:-2] if l.strip()]
+	mdf_lines[start_ind+c2m:-2] = [l for l in mdf_lines[start_ind+c2m:-2] if l.strip()]
 	return car_lines, mdf_lines
 
 def process_car_file(carif, mdfif, chir_flag):
@@ -255,7 +267,12 @@ def process_car_file(carif, mdfif, chir_flag):
 	print(f"Generated: {output_mdf_path}")
 
 if __name__ == "__main__":
-	car_in_file = "../../../HOIS/CRYSTAL_STRUCTURES/PbI4/master_files/R-X-YMBA_PbI4.car"
+	car_in_file = os.getcwd() + "R-X-YMBA_PbI6.car"
+	
+	if len(sys.argv) > 1:
+		car_in_file = sys.argv[1]
+	else: 
+		print("No car file specified - using car file in script.")
 	#input_file = input("Enter full path to the .car structure file (including the file name itself): ").strip()
 	if os.path.isfile(car_in_file) and car_in_file.endswith(".car"):
 		mdf_in_file = os.path.splitext(car_in_file)[0]+'.mdf'
