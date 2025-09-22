@@ -1,5 +1,5 @@
 # lammps_pre_post_processing
-Pre and post processing scripts for running LAMMPS simulations through slurm. Scripts are divided into subdirectories. Most are focused specifically on Hybrid Organic Inorganic Perovskites (HOIPs).
+Pre and post processing scripts for running LAMMPS simulations through slurm. Scripts are divided into subdirectories based on usage. Most are focused specifically on Hybrid Organic Inorganic Perovskites (HOIPs).
 
 ## structure_editors 
  *contains scripts that directly create or edit MD input files.*
@@ -20,8 +20,8 @@ Pre and post processing scripts for running LAMMPS simulations through slurm. Sc
   -  **last_avg_pproc_fold.py** takes a directory input and searches every subdirectory to create a csv from each lammps .out file, then creates a master csv that contains the last line and back half average from each individual .out it parses.
   -  **perov_struct_analysis.py** is a structural analysis script for HOIPs. Takes a lammps trajectory file (.dump) as input. Finds (among other things) lattice parameters, layer heights, organic tilts, and octahedral tilts. Outputs plots from averages and time series. 
 
-## misc_HPC
+## miscellaneous
 *contains files that are not directly related to HOIPs, but are adjacently useful.*
 
-  -  **accelrys_license_check.bat** Checks the current users of the Accelrys Materials Studio floating licenses. Ran in command prompt.
+  -  **accelrys_license_check.cmd** Checks the current users of the Accelrys Materials Studio floating licenses. Runs on double click.
   -  **node_list.sh** Prints out the used and available cpus per node when given a partition. Will highlight your usage green. To run on slurm system, '<path_to_script>node_list.sh <partition>'
