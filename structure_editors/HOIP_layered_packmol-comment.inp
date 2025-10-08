@@ -1,0 +1,43 @@
+# Packmol Script: NEC around Pt nanocrystal
+
+tolerance 2.0  # Minimum distance between atoms (adjust if needed)
+filetype pdb  # Input/output file format
+# Final structure file
+output ../../../HOIS/CRYSTAL_STRUCTURES/Rxn_energy/R-X-YMBA_constr_packed_14.pdb
+pbc -1.0 -1.0 -5.0 37.2544 33.0948 20.2986
+
+# Place platinum nanocrystal in center of the cell
+structure ../../../HOIS/CRYSTAL_STRUCTURES/Rxn_energy/PbI4_layer_replicated.pdb
+  number 1
+  fixed 0 0 0 0 0 0 
+end structure
+
+avoid_overlap yes
+
+# Place 32 MBA molecules in bottom layer
+structure ../../../HOIS/CRYSTAL_STRUCTURES/Rxn_energy/R-X-YMBA_noI.pdb
+  number 32
+  # Thin layer above the PbI layer
+  inside box 0. 0. 3.2986  37.2544 33.0948 10.2986  
+  restart_to ../../../HOIS/CRYSTAL_STRUCTURES/Rxn_energy/pack_rest_0.pack
+  constrain_rotation x 180 30
+  constrain_rotation y 180 30
+  constrain_rotation z 180 20
+end structure
+
+
+# Place 32 MBA molecules in top layer
+structure ../../../HOIS/CRYSTAL_STRUCTURES/Rxn_energy/R-X-YMBA_noI.pdb
+  number 32
+  # Thin layer above above the PbI layer
+  inside box 0. 0. 10.2986  37.2544 33.0948 17.2986  
+  constrain_rotation x 0 30
+  constrain_rotation y 0 30
+  constrain_rotation z 0 20
+end structure
+
+#structure ../../../HOIS/CRYSTAL_STRUCTURES/Rxn_energy/R-X-YMBA_noI.pdb
+#  number 64
+#  # Thin layer above above the PbI layer
+#  inside box 0. 0. 3.2986  37.2544 33.0948 14.2986  
+#end structure
