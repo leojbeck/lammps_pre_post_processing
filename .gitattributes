@@ -1,0 +1,2 @@
+# Re-classify inp as Lammps input files
+*.inp linguist-language=Text
