@@ -13,6 +13,8 @@ Pre and post processing scripts for running LAMMPS simulations through slurm. Sc
 
   -  **hoip_array.sh** takes a folder of .car .mdf pairs and preps and runs lammps simulations for all of them. It converts each to a .data file using msi2lmp.exe, creates a designated folder, and submits the job via slurm.
   -  **batch_job_arr.script** Slurm array batch script to submit a list of lammps simulations at once. Used in conjunction with hoip_array.sh.
+  -  **slurm_auto_rerun.sh** This submits a job that is expected to take longer than the wall time. When it approaches wall time, it cancels the running job and restarts the job. Needs to be paired with an input file that checks if the restart files exist (see lammps_auto_restart.inp)
+  -  **lammps_auto_restart.inp** lammps input script that checks if the restart files exist. If so, it starts from the restart files. Otherwise, it will start from the data file.
 
 ## analysis_scripts
 *contains post-processing files. Typically operate on log, .out, or trajectory files.*
