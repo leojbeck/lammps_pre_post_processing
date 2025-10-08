@@ -36,4 +36,4 @@ echo "Running LAMMPS in $subdir with data file $datafile"
 cd "$subdir"
 
 # Call LAMMPS and pass the structure file as a variable
-lmp -var datafile "$datafile" -var basename "$basename" -in ../$inp_name
+mpirun -np $SLURM_NTASKS lmp_mpi -var datafile "$datafile" -var basename "$basename" -in ../$inp_name
