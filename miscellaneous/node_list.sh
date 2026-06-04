@@ -8,6 +8,16 @@ PARTITION=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        -h|--help)
+            echo "Usage: $0 <partition> [-s <N>]"
+            echo ""
+            echo "  <partition>       Slurm partition to query"
+            echo "  -s, --summary N   Print aggregate counts instead of per-node list;"
+            echo "                    N = minimum free CPUs threshold"
+            echo ""
+            echo "Nodes running your jobs are highlighted in green."
+            exit 0
+            ;;
         -s|--summary)
             SUMMARY=1
             SUMMARY_N="$2"
@@ -31,6 +41,8 @@ if [[ "$SUMMARY" -eq 1 ]] && ! [[ "$SUMMARY_N" =~ ^[0-9]+$ ]]; then
     echo "Error: --summary requires an integer argument"
     exit 1
 fi
+
+# ── setup ──────────────────────────────────────────────────────────────────────
 
 # ANSI colors
 GREEN='\033[1;32m'
